@@ -1,0 +1,12 @@
+# Compiled files
+*.o
+*.out
+*.exe
+/cube
+
+# Build directories and debug symbols
+/build/
+*.dSYM/
+
+# macOS metadata
+.DS_Store
