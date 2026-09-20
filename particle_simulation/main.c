@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <raylib.h>
 
 typedef struct {
   float x;
@@ -10,6 +10,21 @@ struct Particle {
   Vec2 previous_position;
   Vec2 acceleration;
 };
+
+struct Particle create_particle(float dt) {
+  struct Particle particle = {.position = {.x = 0.0f, .y = 10.0f},
+                              .acceleration = {.x = 0.0f, .y = -9.81f}};
+
+  Vec2 velocity = {.x = 2.0f, .y = 0.0f};
+
+  particle.previous_position.x = particle.position.x - velocity.x * dt +
+                                 0.5f * particle.acceleration.x * dt * dt;
+
+  particle.previous_position.y = particle.position.y - velocity.y * dt +
+                                 0.5f * particle.acceleration.y * dt * dt;
+
+  return particle;
+}
 
 void update_particle(struct Particle *particle, float dt) {
   Vec2 current = particle->position;
@@ -24,23 +39,48 @@ void update_particle(struct Particle *particle, float dt) {
 }
 
 int main(void) {
-  struct Particle particle = {.position = {.x = 0.0f, .y = 10.0f},
-                              .previous_position = {.x = 0.0f, .y = 10.0f},
-                              .acceleration = {.x = 0.0f, .y = -9.81f}};
+  const float dt = 1.0f / 60.0f;
+  const float pixels_per_meter = 40.0f;
+  float accumulator = 0.0f;
 
-  float dt = 0.1f;
+  struct Particle particle = create_particle(dt);
 
-  // Initialize the previous position for a particle starting at rest.
-  particle.previous_position.x =
-      particle.position.x + 0.5f * particle.acceleration.x * dt * dt;
-  particle.previous_position.y =
-      particle.position.y + 0.5f * particle.acceleration.y * dt * dt;
+  InitWindow(800, 600, "Particle Simulation");
+  SetTargetFPS(60);
 
-  for (int step = 0; step < 10; step++) {
-    update_particle(&particle, dt);
+  while (!WindowShouldClose()) {
+    float frame_time = GetFrameTime();
 
-    printf("Position: (%f, %f)\n", particle.position.x, particle.position.y);
+    // Avoid a large catch-up after a pause or window drag.
+    if (frame_time > 0.25f) {
+      frame_time = 0.25f;
+    }
+
+    if (IsKeyPressed(KEY_R)) {
+      particle = create_particle(dt);
+      accumulator = 0.0f;
+    } else {
+      accumulator += frame_time;
+    }
+
+    // Physics always advances by the same time step.
+    while (accumulator >= dt) {
+      update_particle(&particle, dt);
+      accumulator -= dt;
+    }
+
+    float screen_x = 80.0f + particle.position.x * pixels_per_meter;
+    float screen_y = 550.0f - particle.position.y * pixels_per_meter;
+
+    BeginDrawing();
+    ClearBackground(RAYWHITE);
+
+    DrawText("R: restart | Esc: close", 20, 20, 20, DARKGRAY);
+    DrawCircle((int)screen_x, (int)screen_y, 10.0f, BLUE);
+
+    EndDrawing();
   }
 
+  CloseWindow();
   return 0;
 }
