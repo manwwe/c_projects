@@ -9,11 +9,13 @@ struct Particle {
   Vec2 position;
   Vec2 previous_position;
   Vec2 acceleration;
+  float radius;
 };
 
 struct Particle create_particle(float dt) {
   struct Particle particle = {.position = {.x = 0.0f, .y = 10.0f},
-                              .acceleration = {.x = 0.0f, .y = -9.81f}};
+                              .acceleration = {.x = 0.0f, .y = -9.81f},
+                              .radius = 0.25f};
 
   Vec2 velocity = {.x = 2.0f, .y = 0.0f};
 
@@ -38,11 +40,40 @@ void update_particle(struct Particle *particle, float dt) {
   particle->previous_position = current;
 }
 
+void collide_with_floor(struct Particle *particle, float dt) {
+  const float floor_y = 0.0f;
+  const float restitution = 0.8f;
+  const float resting_speed = 0.5f;
+  float minimum_y = floor_y + particle->radius;
+
+  if (particle->position.y < minimum_y) {
+    // Estimate vertical velocity before correcting the position.
+    float velocity_y =
+        (particle->position.y - particle->previous_position.y) / dt;
+
+    particle->position.y = minimum_y;
+
+    if (velocity_y < 0.0f) {
+      velocity_y = -velocity_y * restitution;
+    }
+
+    // Stop tiny bounces so the particle can settle.
+    if (velocity_y < resting_speed) {
+      velocity_y = 0.0f;
+    }
+
+    // Encode the new motion in the previous position.
+    particle->previous_position.y = particle->position.y - velocity_y * dt;
+  }
+}
+
 int main(void) {
   const float dt = 1.0f / 60.0f;
   const float pixels_per_meter = 40.0f;
-  float accumulator = 0.0f;
+  const float origin_x = 80.0f;
+  const float origin_y = 550.0f;
 
+  float accumulator = 0.0f;
   struct Particle particle = create_particle(dt);
 
   InitWindow(800, 600, "Particle Simulation");
@@ -51,7 +82,6 @@ int main(void) {
   while (!WindowShouldClose()) {
     float frame_time = GetFrameTime();
 
-    // Avoid a large catch-up after a pause or window drag.
     if (frame_time > 0.25f) {
       frame_time = 0.25f;
     }
@@ -63,20 +93,22 @@ int main(void) {
       accumulator += frame_time;
     }
 
-    // Physics always advances by the same time step.
     while (accumulator >= dt) {
       update_particle(&particle, dt);
+      collide_with_floor(&particle, dt);
       accumulator -= dt;
     }
 
-    float screen_x = 80.0f + particle.position.x * pixels_per_meter;
-    float screen_y = 550.0f - particle.position.y * pixels_per_meter;
+    float screen_x = origin_x + particle.position.x * pixels_per_meter;
+    float screen_y = origin_y - particle.position.y * pixels_per_meter;
 
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
     DrawText("R: restart | Esc: close", 20, 20, 20, DARKGRAY);
-    DrawCircle((int)screen_x, (int)screen_y, 10.0f, BLUE);
+    DrawLine(0, (int)origin_y, 800, (int)origin_y, DARKGRAY);
+    DrawCircle((int)screen_x, (int)screen_y, particle.radius * pixels_per_meter,
+               BLUE);
 
     EndDrawing();
   }
