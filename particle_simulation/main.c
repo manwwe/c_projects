@@ -67,11 +67,40 @@ void collide_with_floor(struct Particle *particle, float dt) {
   }
 }
 
+void collide_with_walls(struct Particle *particle, float dt, float left,
+                        float right) {
+  const float restitution = 0.8f;
+  float minimum_x = left + particle->radius;
+  float maximum_x = right - particle->radius;
+  float velocity_x =
+      (particle->position.x - particle->previous_position.x) / dt;
+
+  if (particle->position.x < minimum_x) {
+    particle->position.x = minimum_x;
+
+    if (velocity_x < 0.0f) {
+      velocity_x = -velocity_x * restitution;
+    }
+  } else if (particle->position.x > maximum_x) {
+    particle->position.x = maximum_x;
+
+    if (velocity_x > 0.0f) {
+      velocity_x = -velocity_x * restitution;
+    }
+  } else {
+    return;
+  }
+
+  particle->previous_position.x = particle->position.x - velocity_x * dt;
+}
+
 int main(void) {
   const float dt = 1.0f / 60.0f;
   const float pixels_per_meter = 40.0f;
   const float origin_x = 80.0f;
   const float origin_y = 550.0f;
+  const float left_wall = (20.0f - origin_x) / pixels_per_meter;
+  const float right_wall = (780.0f - origin_x) / pixels_per_meter;
 
   float accumulator = 0.0f;
   struct Particle particle = create_particle(dt);
@@ -96,6 +125,7 @@ int main(void) {
     while (accumulator >= dt) {
       update_particle(&particle, dt);
       collide_with_floor(&particle, dt);
+      collide_with_walls(&particle, dt, left_wall, right_wall);
       accumulator -= dt;
     }
 
@@ -107,6 +137,8 @@ int main(void) {
 
     DrawText("R: restart | Esc: close", 20, 20, 20, DARKGRAY);
     DrawLine(0, (int)origin_y, 800, (int)origin_y, DARKGRAY);
+    DrawLine(20, 50, 20, (int)origin_y, DARKGRAY);
+    DrawLine(780, 50, 780, (int)origin_y, DARKGRAY);
     DrawCircle((int)screen_x, (int)screen_y, particle.radius * pixels_per_meter,
                BLUE);
 
